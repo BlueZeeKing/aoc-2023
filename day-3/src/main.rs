@@ -4,7 +4,7 @@ fn main() {
     let input = fs::read_to_string("input.txt").unwrap();
     let lines = input.lines().collect::<Vec<_>>();
 
-    let sum: u32 = lines
+    let digits = lines
         .iter()
         .enumerate()
         .map(|(row, line)| {
@@ -15,13 +15,35 @@ fn main() {
         })
         .flatten()
         .grouping_iter()
-        .filter(|((x, y), number)| {
-            SurroundingIter::new(x.clone(), *y)
-                .map(|val| if *number == 660 { dbg!(val) } else { val })
-                .filter_map(|(x, y)| lines.get(y).and_then(|val| val.chars().nth(x)))
-                .any(|char| char != '.' && !char.is_digit(10))
+        .collect::<Vec<_>>();
+
+    let sum: u32 = lines
+        .iter()
+        .enumerate()
+        .map(|(row, line)| {
+            line.chars()
+                .enumerate()
+                .map(move |(col, char)| ((col, row), char))
         })
-        .map(|(_, number)| number)
+        .flatten()
+        .filter(|(_, char)| *char == '*')
+        .filter_map(|((x, y), _)| {
+            let mut surrounding_nums = SurroundingIter::new(x..=x, y)
+                .filter_map(|(x, y)| {
+                    digits
+                        .iter()
+                        .find(|((dx, dy), _)| dx.contains(&x) && *dy == y)
+                })
+                .collect::<Vec<_>>();
+
+            surrounding_nums.dedup();
+
+            if surrounding_nums.len() != 2 {
+                None
+            } else {
+                Some(surrounding_nums[0].1 * surrounding_nums[1].1)
+            }
+        })
         .sum();
 
     println!("{}", sum);
