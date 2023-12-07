@@ -5,7 +5,7 @@ pub enum Card {
     Ace,
     King,
     Queen,
-    Jack,
+    Joker,
     Number(u8),
 }
 
@@ -15,7 +15,7 @@ impl Card {
             Card::Ace => 14,
             Card::King => 13,
             Card::Queen => 12,
-            Card::Jack => 11,
+            Card::Joker => 1,
             Card::Number(n) => *n,
         }
     }
@@ -59,7 +59,7 @@ impl TryFrom<char> for Card {
             'A' => Ok(Card::Ace),
             'K' => Ok(Card::King),
             'Q' => Ok(Card::Queen),
-            'J' => Ok(Card::Jack),
+            'J' => Ok(Card::Joker),
             'T' => Ok(Card::Number(10)),
             '9' => Ok(Card::Number(9)),
             '8' => Ok(Card::Number(8)),
@@ -151,7 +151,12 @@ impl Hand {
     fn calc_type(cards: [Card; 5], bid: u64) -> Self {
         let mut amounts = Vec::new();
 
-        for card in cards {
+        let num_jokers = cards
+            .into_iter()
+            .filter(|card| *card == Card::Joker)
+            .count() as u64;
+
+        for card in cards.into_iter().filter(|card| *card != Card::Joker) {
             if let Some((_, amount)) = amounts
                 .iter_mut()
                 .find(|(check_card, _)| card == *check_card)
@@ -164,6 +169,12 @@ impl Hand {
 
         amounts.sort_by_key(|val| val.1);
         amounts.reverse();
+
+        if amounts.len() > 0 {
+            amounts[0].1 += num_jokers;
+        } else {
+            amounts.push((Card::Joker, num_jokers));
+        }
 
         let hand_type = if amounts[0].1 == 5 {
             HandType::FiveOfKind
