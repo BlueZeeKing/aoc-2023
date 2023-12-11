@@ -1,8 +1,4 @@
-use core::panic;
-use std::{
-    collections::{HashMap, HashSet},
-    fs,
-};
+use std::fs;
 
 const DIRS: &[Direction] = &[
     Direction::Up,
@@ -10,6 +6,30 @@ const DIRS: &[Direction] = &[
     Direction::Down,
     Direction::Right,
 ];
+
+struct Path {
+    path: Vec<Option<Tile>>,
+    width: usize,
+    height: usize,
+}
+
+impl Path {
+    fn set(&mut self, (x, y): (usize, usize), tile: Tile) {
+        self.path[y * self.width + x] = Some(tile);
+    }
+
+    fn new(width: usize, height: usize) -> Self {
+        Self {
+            width,
+            height,
+            path: vec![None; width * height],
+        }
+    }
+
+    fn get(&self, (x, y): (usize, usize)) -> Option<Tile> {
+        self.path[y * self.width + x]
+    }
+}
 
 fn main() {
     let input = fs::read_to_string("input.txt").unwrap();
@@ -41,14 +61,20 @@ fn main() {
     let (mut path, start_dir) = DIRS
         .iter()
         .find_map(|dir| {
-            LoopIter {
+            let loop_iter = LoopIter {
                 field: &field,
                 dir: *dir,
                 position: start.0,
+            };
+            let mut path = Path::new(field.width, field.height);
+            for val in loop_iter {
+                match val {
+                    Err(()) => return None,
+                    Ok((pos, tile)) => path.set(pos, tile),
+                }
             }
-            .collect::<Result<HashMap<(usize, usize), Tile>, ()>>()
-            .ok()
-            .map(|path| (path, dir))
+
+            Some((path, dir))
         })
         .unwrap();
 
@@ -56,16 +82,12 @@ fn main() {
         .iter()
         .filter(|dir| **dir != *start_dir)
         .filter_map(|dir| Some((dir, dir.apply(start.0).ok()?)))
-        .filter_map(|(dir, pos)| Some((dir, path.get(&pos)?)))
+        .filter_map(|(dir, pos)| Some((dir, path.get(pos)?)))
         .find(|(dir, tile)| match dir {
-            Direction::Up => **tile == Tile::BL || **tile == Tile::BR || **tile == Tile::Vertical,
-            Direction::Down => **tile == Tile::TL || **tile == Tile::TR || **tile == Tile::Vertical,
-            Direction::Left => {
-                **tile == Tile::BR || **tile == Tile::TR || **tile == Tile::Horizontal
-            }
-            Direction::Right => {
-                **tile == Tile::BL || **tile == Tile::TL || **tile == Tile::Horizontal
-            }
+            Direction::Up => *tile == Tile::BL || *tile == Tile::BR || *tile == Tile::Vertical,
+            Direction::Down => *tile == Tile::TL || *tile == Tile::TR || *tile == Tile::Vertical,
+            Direction::Left => *tile == Tile::BR || *tile == Tile::TR || *tile == Tile::Horizontal,
+            Direction::Right => *tile == Tile::BL || *tile == Tile::TL || *tile == Tile::Horizontal,
         })
         .unwrap();
 
@@ -85,22 +107,22 @@ fn main() {
         _ => unreachable!(),
     };
 
-    path.insert(start.0, start_tile);
+    path.set(start.0, start_tile);
 
     let path = path;
 
     let full = field
         .iter()
-        .filter(|(pos, _tile)| !path.contains_key(pos))
+        .filter(|(pos, _tile)| path.get(*pos).is_none())
         .filter(|(pos, _tile)| {
             let mut prev_tile = None;
             let mut count = 0;
             for (x, y) in (pos.0..field.width).map(|x| (x, pos.1)) {
-                let Some(tile) = path.get(&(x, y)) else {
+                let Some(tile) = path.get((x, y)) else {
                     continue;
                 };
 
-                let tile = *tile;
+                let tile = tile;
 
                 if tile == Tile::Horizontal {
                     continue;
