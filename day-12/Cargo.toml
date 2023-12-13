@@ -7,4 +7,6 @@ edition = "2021"
 
 [dependencies]
 common = { path = "../common" }
+indicatif = { version = "0.17.7", features = ["rayon"] }
 itertools = "0.12.0"
+rayon = "1.8.0"

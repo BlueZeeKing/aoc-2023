@@ -1,30 +1,42 @@
 use core::panic;
-use std::fs;
+use std::{collections::HashMap, fs};
 
-#[derive(Debug, Clone, Copy)]
+use itertools::Itertools;
+use rayon::iter::{ParallelBridge, ParallelIterator};
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum State {
     Operational,
     Damaged,
+    Unknown,
 }
 
 fn main() {
     let input = fs::read_to_string("input.txt").unwrap();
     let sum = input
         .lines()
+        .par_bridge()
         .map(|line| {
             let mut parts = line.split(" ");
 
-            let row = parts
+            let mut row = parts
                 .next()
                 .unwrap()
                 .chars()
                 .map(|char| match char {
-                    '.' => Some(State::Operational),
-                    '#' => Some(State::Damaged),
-                    '?' => None,
+                    '.' => State::Operational,
+                    '#' => State::Damaged,
+                    '?' => State::Unknown,
                     _ => panic!(),
                 })
                 .collect::<Vec<_>>();
+
+            row.insert(0, State::Unknown);
+
+            let amount = row.len() * 5;
+            let mut row = row.into_iter().cycle().take(amount);
+            row.next().unwrap();
+            let row = row.collect::<Vec<_>>();
 
             let groups: Vec<usize> = parts
                 .next()
@@ -33,79 +45,85 @@ fn main() {
                 .map(|val| val.parse().unwrap())
                 .collect();
 
+            let amount = groups.len() * 5;
+            let groups = groups.into_iter().cycle().take(amount).collect::<Vec<_>>();
+
             (row, groups)
         })
-        .enumerate()
-        .map(|(idx, (row, groups))| {
-            let damaged = row
-                .iter()
-                .enumerate()
-                .filter(|(_, value)| matches!(value, Some(State::Damaged)))
-                .map(|(idx, _)| idx)
-                .collect::<Vec<_>>();
-            let num_damaged = damaged.len();
-            let num_should_damaged: usize = groups.iter().sum();
-            let num_remaining = num_should_damaged - num_damaged;
-
-            if num_remaining == 0 {
-                return 1;
-            }
-
-            let values = row
-                .iter()
-                .enumerate()
-                .filter(|(_, value)| value.is_none())
-                .map(|(idx, _)| idx)
-                .collect::<Vec<_>>();
-
-            let permutations = permutations(&values, num_remaining);
-            let mut num_options = 0;
-
-            for mut permutation in permutations {
-                permutation.reserve(num_damaged);
-                for damage in &damaged {
-                    permutation.push(*damage);
-                }
-
-                permutation.sort_unstable();
-
-                let mut groups_check = vec![];
-                let mut idxs = vec![];
-                for idx in permutation.iter() {
-                    if idxs.len() == 0 {
-                        idxs.push(idx);
-                    } else if **idxs.last().unwrap() + 1 != *idx {
-                        groups_check.push(idxs.len());
-                        idxs = vec![idx];
-                    } else {
-                        idxs.push(idx);
-                    }
-                }
-                groups_check.push(idxs.len());
-                if groups_check == groups {
-                    num_options += 1;
-                }
-            }
-
-            num_options
-        })
+        .map(|(row, groups)| calculate_number_of_combos(0, 0, &groups, &row, &mut HashMap::new()))
         .sum::<usize>();
 
     println!("{sum}");
 }
 
-fn permutations(values: &[usize], len: usize) -> Vec<Vec<usize>> {
-    let mut res = vec![];
-    for (idx, value) in values.iter().enumerate() {
-        let value = *value;
-        if len > 1 {
-            for mut permutation in permutations(&values[idx + 1..], len - 1) {
-                permutation.insert(0, value);
-                res.push(permutation);
+fn calculate_number_of_combos(
+    group_idx: usize,
+    row_idx: usize,
+    groups: &[usize],
+    row: &[State],
+    cache: &mut HashMap<(usize, usize), usize>,
+) -> usize {
+    if let Some(res) = cache.get(&(group_idx, row_idx)) {
+        return *res;
+    }
+    let mut number_combos = 0;
+
+    for (idx, state) in row
+        .iter()
+        .enumerate()
+        .filter(|(_, state)| **state != State::Operational)
+    {
+        if idx + groups[0] > row.len() {
+            // If there isn't enough room for the next group stop
+            break;
+        }
+
+        if row[idx..idx + groups[0]]
+            .iter()
+            .all(|val| *val == State::Unknown || *val == State::Damaged)
+            && (idx + groups[0] >= row.len() || row[idx + groups[0]] != State::Damaged)
+        {
+            // If we can create a contigous group that is the correct length
+            if groups.len() == 1 {
+                // If there is only one contigous group left
+                if row[idx + groups[0]..].iter().contains(&State::Damaged) {
+                    // If there are more damaged springs later on so we either end processing
+                    // because this can never work (if this is a guaranteed damage) or just try the next spot
+                    if *state == State::Damaged {
+                        break;
+                    }
+                    continue;
+                }
+                number_combos += 1;
+                if *state == State::Damaged {
+                    // If this is damaged, we know this is the last one from the check above and
+                    // there can be no future matches
+                    break;
+                }
+                continue;
+            } else if idx + groups[0] + 1 >= row.len() {
+                // If we have run out of springs in the row stop early
+                break;
             }
-        } else {
-            res.push(vec![value]);
+            // Check the number of combanations of the rest of the row
+            number_combos += calculate_number_of_combos(
+                group_idx + 1,
+                row_idx + idx + groups[0] + 1,
+                &groups[1..],
+                &row[idx + groups[0] + 1..],
+                cache,
+            );
+
+            if *state == State::Damaged {
+                break;
+            }
+        } else if *state == State::Damaged {
+            // If this is a damaged piece and it couldn't be fit stop processing
+            break;
         }
     }
-    res
+
+    cache.insert((group_idx, row_idx), number_combos);
+
+    number_combos
 }
