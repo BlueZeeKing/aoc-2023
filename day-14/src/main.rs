@@ -174,10 +174,7 @@ fn spin_cycle_south(field: &Field<Tile>, empty: &Field<Tile>) -> Field<Tile> {
         let mut previous_index: i64 = field.num_rows() as i64;
         let mut previous_end_index = field.num_rows() - 1;
 
-        let col_vec = col.clone().collect::<Vec<_>>();
-
-        col_vec
-            .into_iter()
+        col.clone()
             .enumerate()
             .rev()
             .filter(|(_idx, item)| **item == Tile::Round)
@@ -208,10 +205,7 @@ fn spin_cycle_east(field: &Field<Tile>, empty: &Field<Tile>) -> Field<Tile> {
         let mut previous_index: i64 = field.num_cols() as i64;
         let mut previous_end_index = field.num_cols() - 1;
 
-        let row_vec = row.clone().collect::<Vec<_>>();
-
-        row_vec
-            .into_iter()
+        row.clone()
             .enumerate()
             .rev()
             .filter(|(_idx, item)| **item == Tile::Round)
