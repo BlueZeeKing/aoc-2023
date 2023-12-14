@@ -10,7 +10,6 @@ const DIRS: &[Direction] = &[
 struct Path {
     path: Vec<Option<Tile>>,
     width: usize,
-    height: usize,
 }
 
 impl Path {
@@ -21,7 +20,6 @@ impl Path {
     fn new(width: usize, height: usize) -> Self {
         Self {
             width,
-            height,
             path: vec![None; width * height],
         }
     }

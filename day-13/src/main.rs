@@ -1,4 +1,4 @@
-use common::{field::Field, EqualExt, IterDebugExt, IterExt};
+use common::field::Field;
 use core::panic;
 use std::fs;
 
@@ -91,4 +91,3 @@ fn main() {
 
     dbg!(sum);
 }
-

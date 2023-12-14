@@ -9,7 +9,7 @@ fn main() {
     let num_lines = input.lines().count();
     let mut number_of_cards = vec![1; num_lines];
 
-    let scorecards = lines
+    lines
         .enumerate()
         .filter_map(|(index, line)| {
             let mut parts = line.split(": ");
@@ -48,4 +48,3 @@ fn main() {
 
     println!("{}", number_of_cards.iter().sum::<u32>())
 }
-
