@@ -1,9 +1,34 @@
 // TODO: Double ended iterators
 
+use std::{fmt::Debug, iter::once};
+
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Field<T> {
     width: usize,
     height: usize,
     field: Vec<T>,
+}
+
+impl<T> Debug for Field<T>
+where
+    for<'a> &'a T: Into<char>,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let field = self
+            .rows()
+            .map(|row| {
+                once('\t')
+                    .chain(row.map(|tile| Into::into(tile)).chain(once('\n')))
+                    .collect::<String>()
+            })
+            .collect::<String>();
+
+        write!(
+            f,
+            "Field: {{\n\twidth: {},\n\theight: {},\n\tfield:\n\n{}\n}}",
+            self.width, self.height, field
+        )
+    }
 }
 
 impl<T> Field<T> {
@@ -102,6 +127,7 @@ pub struct FieldRowIter<'a, T> {
     y: usize,
 }
 
+#[derive(Clone)]
 pub struct FieldRowIterIndividual<'a, T> {
     field: &'a Field<T>,
     y: usize,
@@ -157,10 +183,23 @@ pub struct FieldColIter<'a, T> {
     x: usize,
 }
 
+#[derive(Clone)]
 pub struct FieldColIterIndividual<'a, T> {
     field: &'a Field<T>,
     y: usize,
     x: usize,
+}
+
+impl<'a, T> FieldColIterIndividual<'a, T> {
+    pub fn get(&self, y: usize) -> &'a T {
+        self.field.get((self.x, y))
+    }
+}
+
+impl<'a, T> FieldRowIterIndividual<'a, T> {
+    pub fn get(&self, x: usize) -> &'a T {
+        self.field.get((x, self.y))
+    }
 }
 
 impl<'a, T> Iterator for FieldColIter<'a, T> {
